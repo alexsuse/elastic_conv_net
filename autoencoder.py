@@ -77,27 +77,45 @@ class dA:
 
 
 if __name__=='__main__':
+	#Mnist has 70000 examples, we use 50000 for training, set 20000 aside for validation
+	train_size = 50000
+	train_data,validation_data = ld.load_data_mnist(train_size = train_size)
 
-	data,dataset_size = ld.load_data_mnist()
-
+	#fiddle around, not sure which values to use
 	training_epochs = 50
 	training_batches=100
-	batch_size = int(dataset_size/training_batches)-2
-	
-	batches,ys = ld.make_vector_batches(data,training_batches,batch_size)
-#	theano_data = logistic_sgd.load_data('/Users/alex//Downloads/mnist.pkl.gz')
-#	data_x,data_y = theano_data[0]
+	batch_size = int(train_data['images'].shape[0]/training_batches)
+	batches,ys = ld.make_vector_batches(train_data,training_batches,batch_size)
+	validation_images,validation_ys = ld.make_vector_batches(validation_data,1,validation_data['images'].shape[0])
+
 	index = T.lscalar()
 	x = T.dmatrix('x')
-
+	
+	#Creates a denoising autoencoder with 500 hidden nodes, could be changed as well
 	a = dA(784,500,data=x)
+	
+	#set theano shared variables for the train and validation data
 	data_x = theano.shared(value = np.asarray(batches,dtype=theano.config.floatX),name='data_x')
+	validation_x = theano.shared(value = np.asarray(validation_images[0,:,:],dtype=theano.config.floatX),name='validation_x')
 
+	#get cost and update functions for the autoencoder
 	cost,updates = a.get_cost_and_updates(0.2,0.01)
+
+	#train_da returns the current cost and updates the dA parameters, index gives the batch index.
 	train_da = theano.function([index],cost,updates=updates,givens=[(x , data_x[index])],on_unused_input='ignore')
+
+	#validation_error just returns the cost on the validation set
+	validation_error = theano.function([],cost,givens=[(x,validation_x)],on_unused_input='ignore')
+
+	#loop over training epochs
 	for epoch in xrange(training_epochs):
 		c = []
+		
+		#loop over batches
 		for batch in xrange(training_batches):
-			#data_x.set_value(np.asarray(batches[batch,:,:],dtype=theano.config.floatX))
+			
+			#collect costs for this batch
 			c.append(train_da(batch))
-		print 'Training epoch %d, cost ' % epoch, np.mean(c)
+
+		#pritn mean training cost in this epoch and final validation cost for checking
+		print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch, np.mean(c), validation_error())

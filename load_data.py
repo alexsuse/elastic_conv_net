@@ -8,17 +8,27 @@ from numpy.random import permutation
 from numpy import reshape, prod
 import numpy as np
 
-def load_data_mnist():
+def load_data_mnist(train_size=None):
 	"""
 	load the mnist dataset from the skdata package.
 	"""
-	print "---->\n.....Loading MNIST data from the skdata package\n"
+	print "---->\n.....Loading MNIST data from the skdata package"
 	dataset = view.OfficialImageClassification()
-	data = {}
-	data['images'] = dataset.all_images/256.0
-	data['labels'] = dataset.all_labels
+	if train_size:
+		train_data = {}
+		validation_data = {}
+		order = permutation(dataset.all_images.shape[0])
+		train_data['images'] = dataset.all_images[order[:train_size]]/256.0
+		train_data['labels'] = dataset.all_labels[order[:train_size]]
+		validation_data['images'] = dataset.all_images[order[train_size:]]/256.0
+		validation_data['labels'] = dataset.all_labels[order[train_size:]]
+	else:
+		train_data = {}
+		validation_data = {}
+		train_data['images'] = dataset.all_images/256.0
+		train_data['labels'] = dataset.all_labels
 	print "---->\n.....Done!"
-	return data, data['images'].shape[0]
+	return train_data, validation_data
 
 
 def make_vector_batches(data , nbatches, batch_size):
@@ -37,7 +47,7 @@ def make_vector_batches(data , nbatches, batch_size):
 		xs = data['images'][permut[i*batch_size:(i+1)*batch_size],:,:,:]
 		xdata.append(reshape(xs,(batch_size,prod(xs.shape)/batch_size)))
 		ydata.append(data['labels'][permut[i*batch_size:(i+1)*batch_size]])
-	print "---->\n.....Done!
+	print "---->\n.....Done!"
 	return [np.reshape(np.asarray(xdata),(nbatches,batch_size,-1)),np.asarray(ydata)]
 
 def make_batches(data , nbatches, batch_size):
@@ -52,6 +62,6 @@ def make_batches(data , nbatches, batch_size):
 	return batches
 
 if __name__=='__main__':
-	data,_ = load_data_mnist()
+	data,_ = load_data_mnist(train_size = 50000)
 	batches = make_vector_batches(data,10,10)
 	print batches[0][0,:]
