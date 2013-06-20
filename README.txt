@@ -3,8 +3,11 @@ allowing breaking convolutional simmetry.
 
 ---
 
-Nothing more so far
+Working example of an autoencoder learning features on the MNIST dataset will run with
 
+python autoencoder.py
+
+Requires numpy and theano
 
 ---
 
