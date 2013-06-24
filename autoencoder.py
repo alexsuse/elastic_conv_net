@@ -8,6 +8,9 @@ from numpy import exp, dot, sum, log
 import numpy as np
 import theano
 import load_data as ld
+import matplotlib.pyplot as plt
+import cPickle as pic
+
 
 class dA:
 	"""
@@ -15,7 +18,7 @@ class dA:
 	hidden activation is given by h = logistic(W_vtoh*visible+b_h)
 	visible activation is givens by z = logistic(W_htov*hidden+b_v)
 	"""
-	def __init__(self,nvisible,nhidden,data = None, rng_seed = None):
+	def __init__(self,nvisible,nhidden,data = None, rng_seed = None, regL = None):
 		self.nhidden = nhidden
 		self.nvisible = nvisible
 
@@ -34,7 +37,7 @@ class dA:
 			size = (nvisible,nhidden)),dtype = theano.config.floatX)
 		W_vtoh = shared(value = Wi_vtoh, name = 'W_vtoh')
 		self.W_vtoh = W_vtoh
-
+		
 		#biases
 		bi_h = np.asarray(np.zeros(nhidden),dtype = theano.config.floatX)
 		b_h = shared(value = bi_h,name='b_h')
@@ -42,6 +45,12 @@ class dA:
 		bi_v = np.asarray(np.zeros(nvisible),dtype = theano.config.floatX)
 		b_v = shared(value = bi_v , name= 'b_v')
 		self.b_v = b_v
+		
+		#regularization parameter lambda
+		if regL==None:
+			self.lamb = None
+		else:
+			self.lamb = shared(value = regL, name = 'lamb')
 		if data:
 			self.data = data
 		else:
@@ -66,7 +75,9 @@ class dA:
 		reconst_x = self.get_reconstruction_function(self.corrupt_input(self.data,corruptionlevel))
 		L = -T.sum(self.data*T.log(reconst_x)+(1-self.data)*T.log(1-reconst_x),axis=1)
 		cost = T.mean(L)
-
+		if self.lamb!=None:
+			L += self.lamb*(T.mean(T.dot(self.W_vtoh,self.W_vtoh))+T.mean(T.dot(self.W_htov,self.W_htov)))
+		
 		gparams = T.grad(cost,self.params)
 
 		updates=[]
@@ -82,7 +93,7 @@ if __name__=='__main__':
 	train_data,validation_data = ld.load_data_mnist(train_size = train_size)
 
 	#fiddle around, not sure which values to use
-	training_epochs = 50
+	training_epochs = 100
 	training_batches=100
 	batch_size = int(train_data['images'].shape[0]/training_batches)
 	batches,ys = ld.make_vector_batches(train_data,training_batches,batch_size)
@@ -92,7 +103,7 @@ if __name__=='__main__':
 	x = T.dmatrix('x')
 	
 	#Creates a denoising autoencoder with 500 hidden nodes, could be changed as well
-	a = dA(784,500,data=x)
+	a = dA(784,500,data=x,regL=0.01)
 	
 	#set theano shared variables for the train and validation data
 	data_x = theano.shared(value = np.asarray(batches,dtype=theano.config.floatX),name='data_x')
@@ -110,7 +121,7 @@ if __name__=='__main__':
 	#loop over training epochs
 	for epoch in xrange(training_epochs):
 		c = []
-		
+		ve = validation_error()	
 		#loop over batches
 		for batch in xrange(training_batches):
 			
@@ -118,4 +129,7 @@ if __name__=='__main__':
 			c.append(train_da(batch))
 
 		#pritn mean training cost in this epoch and final validation cost for checking
-		print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch, np.mean(c), validation_error())
+		print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch, np.mean(c), ve)
+	fi = open('autoencoder_pickle','w')
+	b = [a.W_vtoh.get_value(),a.b_h.get_value(),a.W_htov.get_value(),a.b_v.get_value()]
+	pic.dump(b,fi)
