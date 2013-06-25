@@ -18,35 +18,38 @@ class dA:
 	hidden activation is given by h = logistic(W_vtoh*visible+b_h)
 	visible activation is givens by z = logistic(W_htov*hidden+b_v)
 	"""
-	def __init__(self,nvisible,nhidden,data = None, rng_seed = None, regL = None):
+	def __init__(self,nvisible,nhidden,data = None, W1 = None, bv= None, bh = None, rng_seed = None, regL = None):
 		self.nhidden = nhidden
 		self.nvisible = nvisible
 
 		#hidden to visible matrix
-		Wi_htov = np.asarray(np.random.uniform(
-			low = -4*np.sqrt(6./(nhidden+nvisible) ),
-			high = 4*np.sqrt(6./(nhidden+nvisible) ),
-			size = (nhidden,nvisible)),dtype = theano.config.floatX)
-		W_htov = shared(value=Wi_htov, name='W_htov')
-		self.W_htov = W_htov
+		if W1 == None:
+			Wi = np.asarray(np.random.uniform(
+				low = -4*np.sqrt(6./(nhidden+nvisible) ),
+				high = 4*np.sqrt(6./(nhidden+nvisible) ),
+				size = (nvisible,nhidden)),dtype = theano.config.floatX)
+			W = shared(value = Wi, name = 'W')
+		else:
+			W = shared(value = W1, name = 'W')
+		self.W = W
+		self.Wprime = W.T
 
-		#visible to hidden matrix
-		Wi_vtoh = np.asarray(np.random.uniform(
-			low = -4*np.sqrt(6./(nhidden+nvisible) ),
-			high = 4*np.sqrt(6./(nhidden+nvisible) ),
-			size = (nvisible,nhidden)),dtype = theano.config.floatX)
-		W_vtoh = shared(value = Wi_vtoh, name = 'W_vtoh')
-		self.W_vtoh = W_vtoh
-		
 		#biases
-		bi_h = np.asarray(np.zeros(nhidden),dtype = theano.config.floatX)
-		b_h = shared(value = bi_h,name='b_h')
-		self.b_h = b_h
-		bi_v = np.asarray(np.zeros(nvisible),dtype = theano.config.floatX)
-		b_v = shared(value = bi_v , name= 'b_v')
+		if bh==None:
+			bi_h = np.asarray(np.zeros(nhidden),dtype = theano.config.floatX)
+			b_h = shared(value = bi_h , name = 'b_h')
+		else:
+			b_h = shared(value = bh , name = 'b_h')
+		if bv==None:
+			bi_v = np.asarray(np.zeros(nvisible),dtype = theano.config.floatX)
+			b_v = shared(value = bi_v , name= 'b_v')
+		else:
+			b_v = shared(value = bv , name = 'b_v')
 		self.b_v = b_v
+		self.b_h = b_h
 		
 		#regularization parameter lambda
+		
 		if regL==None:
 			self.lamb = None
 		else:
@@ -62,10 +65,10 @@ class dA:
 			self.rng = np.random.RandomState(1234)
 			self.theano_rng = T.shared_randomstreams.RandomStreams(self.rng.randint(2**30))
 
-		self.params=[self.W_vtoh,self.W_htov,self.b_h,self.b_v]
+		self.params=[self.W,self.b_h,self.b_v]
 
 	def get_reconstruction_function(self,input):
-		return T.nnet.sigmoid(T.dot(T.nnet.sigmoid(T.dot(input,self.W_vtoh)+self.b_h),self.W_htov)+self.b_v)
+		return T.nnet.sigmoid(T.dot(T.nnet.sigmoid(T.dot(input,self.W)+self.b_h),self.Wprime)+self.b_v)
 
 	def corrupt_input(self,input,corruption_level):
 		return self.theano_rng.binomial(size=input.shape, n=1, p=1 - corruption_level) * input
@@ -76,7 +79,7 @@ class dA:
 		L = -T.sum(self.data*T.log(reconst_x)+(1-self.data)*T.log(1-reconst_x),axis=1)
 		cost = T.mean(L)
 		if self.lamb!=None:
-			L += self.lamb*(T.mean(T.dot(self.W_vtoh,self.W_vtoh))+T.mean(T.dot(self.W_htov,self.W_htov)))
+			L += self.lamb*(T.mean(T.dot(self.W,self.W)))
 		
 		gparams = T.grad(cost,self.params)
 
@@ -86,6 +89,40 @@ class dA:
 	
 		return (cost,updates)
 
+class assymetric_dA(dA):
+	"""
+	Assymetric AE, extend from dA
+	hidden activation is given by h = logistic(W_vtoh*visible+b_h)
+	visible activation is givens by z = logistic(W_htov*hidden+b_v)
+	"""
+	def __init__(self,nvisible,nhidden,data = None, W1 = None, W2 = None, b_v = None, b_h = None, rng_seed = None, regL = None):
+		dA.__init__(self,nvisible,nhidden,data,W1,b_v,b_h,rng_seed,regL)
+
+		#visible to hidden matrix
+		Wi_htov = np.asarray(np.random.uniform(
+			low = -4*np.sqrt(6./(nhidden+nvisible) ),
+			high = 4*np.sqrt(6./(nhidden+nvisible) ),
+			size = (nhidden,nvisible)),dtype = theano.config.floatX)
+		Wprime = shared(value = Wi_htov, name = 'Wprime')
+		self.Wprime = Wprime
+		
+		self.params.append(self.Wprime)
+	
+	def get_cost_and_updates(self,corruptionlevel,learning_rate):
+
+		reconst_x = self.get_reconstruction_function(self.corrupt_input(self.data,corruptionlevel))
+		L = -T.sum(self.data*T.log(reconst_x)+(1-self.data)*T.log(1-reconst_x),axis=1)
+		cost = T.mean(L)
+		if self.lamb!=None:
+			L += self.lamb*(T.mean(T.dot(self.W,self.W))+T.mean(T.dot(self.Wprime,self.Wprime)))
+		
+		gparams = T.grad(cost,self.params)
+
+		updates=[]
+		for param,gparams in zip(self.params,gparams):
+			updates.append((param,param-learning_rate*gparams))
+	
+		return (cost,updates)
 
 if __name__=='__main__':
 	#Mnist has 70000 examples, we use 50000 for training, set 20000 aside for validation
@@ -105,7 +142,7 @@ if __name__=='__main__':
 	#Creates a denoising autoencoder with 500 hidden nodes, could be changed as well
 	a = dA(784,500,data=x,regL=0.01)
 	
-	#set theano shared variables for the train and validation data
+	#sEt theano shared variables for the train and validation data
 	data_x = theano.shared(value = np.asarray(batches,dtype=theano.config.floatX),name='data_x')
 	validation_x = theano.shared(value = np.asarray(validation_images[0,:,:],dtype=theano.config.floatX),name='validation_x')
 
@@ -130,6 +167,10 @@ if __name__=='__main__':
 
 		#pritn mean training cost in this epoch and final validation cost for checking
 		print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch, np.mean(c), ve)
-	fi = open('autoencoder_pickle','w')
-	b = [a.W_vtoh.get_value(),a.b_h.get_value(),a.W_htov.get_value(),a.b_v.get_value()]
+	try:
+		finame = raw_input('Output to pickle?')
+	except SyntaxError, NameError:
+		finame = 'output_pickle'
+	fi = open(finame,'w')
+	b = [a.W.get_value(),a.b_h.get_value(),a.b_v.get_value()]
 	pic.dump(b,fi)
