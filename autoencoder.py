@@ -132,22 +132,25 @@ if __name__=='__main__':
 	#fiddle around, not sure which values to use
 	training_epochs = 100
 	training_batches=100
+	patch_size = 10
 	batch_size = int(train_data['images'].shape[0]/training_batches)
-	batches,ys = ld.make_vector_batches(train_data,training_batches,batch_size)
-	validation_images,validation_ys = ld.make_vector_batches(validation_data,1,validation_data['images'].shape[0])
+	batches = ld.make_vector_patches(train_data,training_batches,batch_size,patch_size)
+	validation_images = ld.make_vector_patches(validation_data,1,validation_data['images'].shape[0],patch_size)
+	#batches,ys = ld.make_vector_patches(train_data,training_batches,batch_size,patch_size)
+	#validation_images,validation_ys = ld.make_vector_batches(validation_data,1,validation_data['images'].shape[0])
 
 	index = T.lscalar()
 	x = T.dmatrix('x')
 	
 	#Creates a denoising autoencoder with 500 hidden nodes, could be changed as well
-	a = dA(784,500,data=x,regL=0.01)
+	a = dA(100,500,data=x,regL=0.05)
 	
 	#sEt theano shared variables for the train and validation data
 	data_x = theano.shared(value = np.asarray(batches,dtype=theano.config.floatX),name='data_x')
 	validation_x = theano.shared(value = np.asarray(validation_images[0,:,:],dtype=theano.config.floatX),name='validation_x')
 
 	#get cost and update functions for the autoencoder
-	cost,updates = a.get_cost_and_updates(0.2,0.01)
+	cost,updates = a.get_cost_and_updates(0.4,0.05)
 
 	#train_da returns the current cost and updates the dA parameters, index gives the batch index.
 	train_da = theano.function([index],cost,updates=updates,givens=[(x , data_x[index])],on_unused_input='ignore')
@@ -167,10 +170,10 @@ if __name__=='__main__':
 
 		#pritn mean training cost in this epoch and final validation cost for checking
 		print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch, np.mean(c), ve)
-	try:
-		finame = raw_input('Output to pickle?')
-	except SyntaxError, NameError:
-		finame = 'output_pickle'
+	#try:
+	#	finame = raw_input('Output to pickle?')
+	#except SyntaxError, NameError:
+	finame = 'output_pickle_2'
 	fi = open(finame,'w')
 	b = [a.W.get_value(),a.b_h.get_value(),a.b_v.get_value()]
 	pic.dump(b,fi)

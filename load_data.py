@@ -31,6 +31,22 @@ def load_data_mnist(train_size=None):
 	return train_data, validation_data
 
 
+def make_vector_patches(data,nbatches,batch_size,field_size):
+	"""
+	Makes localized batches of patches of the MNIST data.
+	These can be randomly indexed to get a selection of 
+	"""
+	patches = []
+	for i in xrange(nbatches):
+		xs = np.zeros((batch_size,field_size**2))
+		for j in xrange(batch_size):
+			RAND_im = np.random.randint(data['images'].shape[0])
+			RAND_x = np.random.randint(data['images'].shape[1]-field_size)
+			RAND_y = np.random.randint(data['images'].shape[2]-field_size)
+			xs[j,:] = np.reshape(data['images'][RAND_im,RAND_x:RAND_x+field_size,RAND_y:RAND_y+field_size,:],(field_size**2,))
+		patches.append(xs)
+	return np.reshape(np.asarray(patches),(nbatches,batch_size,-1))
+
 def make_localized_batches(data,nbatches,batch_size,field_size, stride):
 	"""
 	Makes localized batches of patches of the MNIST data.
@@ -86,5 +102,5 @@ def make_batches(data , nbatches, batch_size):
 
 if __name__=='__main__':
 	data,_ = load_data_mnist(train_size = 50000)
-	local_batches = make_localized_batches(data,10,10,14,14)
-	print local_batches[(0,0)].shape
+	local_batches = make_vector_patches(data,10,10,14)
+	print local_batches.shape
