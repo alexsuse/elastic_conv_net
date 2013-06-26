@@ -7,8 +7,13 @@ Working example of an autoencoder learning features on the MNIST dataset will ru
 
 python autoencoder.py
 
+Working example (sort of) of a conv_net with autoencoder pretraining with a 10x10 receptive field
+will run with
+
+python conv_net.py
+
 Requires numpy and theano
 
 ---
 
-Alex Susemihl 2013/06/19
+Alex Susemihl 2013/06/26 (Hugo's three months old!!)
