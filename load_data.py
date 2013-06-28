@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 load mnist data from skdata library
 """

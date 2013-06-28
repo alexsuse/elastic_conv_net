@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Implements a simple autoencoder class, with a simple training method.
 """
@@ -8,7 +8,7 @@ import numpy as np
 import theano
 import load_data as ld
 import cPickle as pic
-
+from theano.printing import Print
 
 class dA:
     """
@@ -52,10 +52,11 @@ class dA:
             self.lamb = None
         else:
             self.lamb = shared(value=regL, name='lamb')
+            self.lamb = T.cast(self.lamb, dtype=theano.config.floatX)
         if data:
             self.data = data
         else:
-            self.data = T.dmatrix('data')
+            self.data = T.matrix('data')
         if rng_seed:
             self.rng = np.random.RandomState(rng_seed)
             self.theano_rng = T.shared_randomstreams.RandomStreams(
@@ -88,8 +89,10 @@ class dA:
         gparams = T.grad(cost, self.params)
 
         updates = []
-        for param, gparams in zip(self.params, gparams):
-            updates.append((param, param - learning_rate * gparams))
+        for param, gparam in zip(self.params, gparams):
+            #updates.append((param, param - learning_rate))
+            updates.append((param, param - learning_rate *
+                             T.cast(gparam, dtype=theano.config.floatX)))
 
         return (cost, updates)
 
@@ -152,7 +155,7 @@ if __name__ == '__main__':
     #validation_images,validation_ys = ld.make_vector_batches(validation_data,1,validation_data['images'].shape[0])
 
     index = T.lscalar()
-    x = T.dmatrix('x')
+    x = T.matrix('x')
 
     #Creates a denoising autoencoder with 500 hidden nodes
     a = dA(100, 500, data=x, regL=0.05)
