@@ -28,9 +28,13 @@ def load_data_mnist(train_size=None):
         validation_data = {}
         train_data['images'] = dataset.all_images / 256.
         train_data['labels'] = dataset.all_labels
+    for r in train_data:
+        train_data[r] = train_data[r].astype(theano.config.floatX)
+    for r in validation_data:
+        validation_data[r] = validation_data[r].astype(theano.config.floatX)
     print "---->\n.....Done!"
-    return train_data.astype(theano.config.floatX), validation_data.astype(
-                                                        theano.config.floatX)
+
+    return train_data, validation_data
 
 
 def make_vector_patches(data, nbatches, batch_size, field_size):
