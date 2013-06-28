@@ -114,7 +114,8 @@ if __name__ == '__main__':
     patch_size = 10
 
     batch_size = int(train_data['images'].shape[0] / training_batches)
-
+    print 'Training Epochs %d, Batch Size %d, Training Batches %d' % (
+                            training_epochs, batch_size, training_batches)
     # n_filters is 30 so I can run it on my laptop,
     # reasonable values should be around 100, 200 at least.
     n_filters = 200
