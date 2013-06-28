@@ -6,7 +6,7 @@ from skdata.mnist import view
 from numpy.random import permutation
 from numpy import reshape, prod
 import numpy as np
-
+import theano
 
 def load_data_mnist(train_size=None):
     """
@@ -29,7 +29,8 @@ def load_data_mnist(train_size=None):
         train_data['images'] = dataset.all_images / 256.
         train_data['labels'] = dataset.all_labels
     print "---->\n.....Done!"
-    return train_data, validation_data
+    return train_data.astype(theano.config.floatX), validation_data.astype(
+                                                        theano.config.floatX)
 
 
 def make_vector_patches(data, nbatches, batch_size, field_size):
