@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+
 import numpy as np
+import theano
 import theano.tensor as T
 from theano.tensor.nnet import conv
-import theano
+import time
 from autoencoder import dA
 import load_data as ld
 import cPickle as pic
@@ -113,7 +114,8 @@ if __name__ == '__main__':
     patch_size = 10
 
     batch_size = int(train_data['images'].shape[0] / training_batches)
-
+    print 'Training Epochs %d, Batch Size %d, Training Batches %d' % (
+                            training_epochs, batch_size, training_batches)
     # n_filters is 30 so I can run it on my laptop,
     # reasonable values should be around 100, 200 at least.
     n_filters = 200
@@ -144,7 +146,7 @@ if __name__ == '__main__':
         #validation_images,validation_ys = ld.make_vector_batches(
         #        validation_data,1,validation_data['images'].shape[0])
 
-        x = T.dmatrix('x')
+        x = T.matrix('x')
         #Creates a denoising autoencoder with 500 hidden nodes,
         # could be changed as well
         a = dA(patch_size * patch_size, n_filters, data=x, regL=0.05)
@@ -168,6 +170,7 @@ if __name__ == '__main__':
                                            on_unused_input='ignore')
         #loop over training epochs
         for epoch in xrange(training_epochs):
+            epoch_time = time.clock()
             c = []
             ve = validation_error()
             #loop over batches
@@ -178,8 +181,9 @@ if __name__ == '__main__':
 
             # print mean training cost in this epoch and
             # final validation cost for checking
-            print 'Training epoch %d, cost %lf, validation cost %lf' % (
-                                                        epoch, np.mean(c), ve)
+            print ('Training epoch %d, cost %.5f,'
+                   ' validation cost %.5f, time %dsecs') % (epoch, np.mean(c),
+                                                ve, time.clock() - epoch_time)
 
         W_ae = np.reshape(a.W.get_value(), (n_filters, 1,
                                             patch_size, patch_size))
