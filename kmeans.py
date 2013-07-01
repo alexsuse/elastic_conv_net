@@ -13,7 +13,7 @@ class KMeans(object):
         '''
         nexamples,dim = data.shape
 	self.nfeatures = nfeatures
-	self.prototypes = np.zeros((nfeatures,dim))
+	#self.prototypes = np.random.uniform(-1,1,(nfeatures,dim))
 
 	self.training_epochs = 10
 
@@ -22,13 +22,13 @@ class KMeans(object):
 	dists =np.zeros((self.nfeatures,nexamples))
 	for i in xrange(self.training_epochs):
 		print '---->\n.....training epoch %d'%i
-		
 		#dists = np.diag(np.dot(self.prototypes,self.prototypes.T))-np.dot(data,self.prototypes.T)
 		for j in xrange(self.nfeatures):
 			dists[j,:] = np.sum((data-self.prototypes[j,:])**2,axis=1)
-		assignments = np.argmin(dists,axis=1)
+		assignments = np.argmin(dists,axis=0)
+		print assignments
 		for j in xrange(self.nfeatures):
-			self.prototypes[j,:] = np.mean(data[assignments==j],axis=0)
+			self.prototypes[j,:] = np.mean(data[assignments==j,:],axis=0)
 
 
 if __name__=='__main__':
@@ -39,7 +39,7 @@ if __name__=='__main__':
 	for i in xrange(nfeatures):
 		plt.imshow(km.prototypes[i,:].reshape((28,28)),interpolation='nearest')
 		plt.show()
-		if input()==EOF:
+		if raw_input('continue?')!='y':
 			break
 
 	
