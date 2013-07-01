@@ -70,12 +70,15 @@ def make_localized_batches(data, nbatches, batch_size, field_size, stride):
     return batches
 
 
-def make_unsupervised_batches(data, nbatches, batch_size):
+def make_unsupervised_batches(data, nbatches, batch_size=None):
     """
     Same as make_vector_batches, but doesn't include label data
     """
     print '---->\n.....Putting data into vector-shaped batches'
-    assert nbatches * batch_size <= data.shape
+    if batch_size==None:
+        batch_size = int(data.sahpe[0]/nbatches)
+    else:
+        assert nbatches * batch_size <= data.shape
     permut = permutation(data.shape[0])
     xdata = []
     for i in xrange(nbatches):
@@ -84,13 +87,16 @@ def make_unsupervised_batches(data, nbatches, batch_size):
     return np.reshape(np.asarray(xdata), (nbatches, batch_size, -1))
 
 
-def make_vector_batches(data, nbatches, batch_size):
+def make_vector_batches(data, nbatches, batch_size=None):
     """
     Loads data in data into a list of numpy arrays with individual batches.
     batches are in batch_size x data_dim format 
     """
     print "---->\n.....Putting into vector-shaped batches"
-    assert nbatches * batch_size <= data['images'].shape[0]
+    if batch_size==None:
+        batch_size = int(data['images'].shape[0]/nbatches)
+    else:
+        assert nbatches * batch_size <= data['images'].shape[0]
     permut = permutation(data['images'].shape[0])
     xdata = []
     ydata = []
