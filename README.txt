@@ -12,8 +12,8 @@ will run with
 
 python conv_net.py
 
-Requires numpy and theano
+Requires skdata, numpy and theano
 
 ---
 
-Alex Susemihl 2013/06/26 (Hugo's three months old!!)
+Alex Susemihl 2013/07/02
