@@ -18,10 +18,10 @@ class RBM:
     The classic RBM of yore.
     """
     def __init__(self, nvisible, nhidden, data=None, Wi=None, bv=None,
-                 bh=None, rng=None, theano_rng=None):
+                 bh=None, rng=None, theano_rng=None, sparse = 0.1):
         self.nhidden = nhidden
         self.nvisible = nvisible
-
+        self.sparse = sparse
         #hidden to visible matrix
         if Wi == None:
             Wi = np.asarray(np.random.uniform(
@@ -83,14 +83,14 @@ class RBM:
     def sample_v_given_h(self,hid):
         mean = T.dot(hid,self.W.T) + self.b_v
         #v_sample = 0.5*self.theano_rng.normal(size = mean.shape, dtype= theano.config.floatX)*(self.vvar+self.epsilon)**2 + mean
-        v_sample = 0.5*(self.vvar+self.epsilon)*self.theano_rng.normal(size = mean.shape, dtype=theano.config.floatX)+mean
+        v_sample = 0.5*T.sqrt(T.sqrt(self.vvar)+self.epsilon)*self.theano_rng.normal(size = mean.shape, dtype=theano.config.floatX)+mean
         #v_sample = mean
         return [mean, v_sample]
 
     def free_energy(self, vsample):
         #visible_term = T.sum(T.dot(vsample*(self.vvar+self.epsilon)**2,vsample.T)*0.5,axis=1)
-        varterm = 1.0/(self.vvar+self.epsilon)
-        visible_term = T.sum(T.sqr((vsample-self.b_v)*varterm),axis=1)*0.5
+        varterm = 1.0/(T.sqr(self.vvar)+self.epsilon)
+        visible_term = T.sum(T.sqr((vsample-self.b_v))*varterm,axis=1)*0.5
         exponent = T.dot(vsample,self.W)+self.b_h
         hidden_term = T.sum(T.log(1+T.exp(exponent)),axis=1)
         return visible_term - hidden_term
@@ -125,6 +125,10 @@ class RBM:
                             T.cast(gparam,dtype=theano.config.floatX)
             #updates.append((param, param - T.cast(learning_rate,dtype = theano.config.floatX) *
             #                 T.cast(gparam, dtype=theano.config.floatX)))
+
+        if param==self.b_h:
+            updates[param] = param + ((T.cast(self.sparse,dtype=theano.config.floatX)
+                - probs.mean(0))*T.cast(learning_rate*0.1,dtype=theano.config.floatX))
         if persistent:
             updates[persistent_chain] = hsamples[-1]
             #updates.append((persistent_chain, hsamples[-1]))
@@ -143,7 +147,7 @@ if __name__ == '__main__':
     validation_data['labels'] = validation_data['labels'][:5000]
 
     #fiddle around, not sure which values to use
-    training_epochs = 100
+    training_epochs = 1000
     training_batches = 100
     patch_size = 28
     batch_size = int(train_data['images'].shape[0] / training_batches)
@@ -157,7 +161,7 @@ if __name__ == '__main__':
 
     #layer sizes
     nvisible = patch_size**2
-    nhidden = 200
+    nhidden = 50
 
     index = T.lscalar()
     x = T.matrix('x')
@@ -202,11 +206,14 @@ if __name__ == '__main__':
         #and final validation cost for checking
         #print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch,
         #                                                         np.mean(c), ve)
-        if epoch%10==0 and epoch!=0:
-            ind = np.random.randint(nhidden)
-
-            plt.imshow(np.reshape(rbm.W.get_value()[:,ind],(28,28)),interpolation='nearest')
-            plt.show()
+        if epoch==training_epochs-1 and epoch!=0:
+            for ind in xrange(nhidden):
+                plt.imshow(np.reshape( rbm.W.get_value()[ :, ind], (28, 28)), interpolation='nearest', cmap=plt.cm.gray)
+                plt.colorbar()
+                plt.show()
+                plt.imshow(np.reshape(rbm.vvar.get_value(),(28,28)), interpolation='nearest', cmap=plt.cm.gray)
+                plt.colorbar()
+                plt.show()
         print 'Training epoch %d, cost %lf' %(epoch,np.mean(c))
     
     finame = 'output_pickle_rbm'
