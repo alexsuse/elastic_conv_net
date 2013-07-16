@@ -10,8 +10,9 @@ import load_data as ld
 import cPickle as pic
 from theano.printing import Print
 from theano.tensor.shared_randomstreams import RandomStreams
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-#theano.config.compute_test_value = 'warn'
 
 class RBM:
     """
@@ -53,7 +54,7 @@ class RBM:
         self.vvar = vvar
 
         #epsilon
-        self.epsilon = 0.01
+        self.epsilon = 0.5
 
         if data==None:
             print 'no data'
@@ -83,7 +84,7 @@ class RBM:
     def sample_v_given_h(self,hid):
         mean = T.dot(hid,self.W.T) + self.b_v
         #v_sample = 0.5*self.theano_rng.normal(size = mean.shape, dtype= theano.config.floatX)*(self.vvar+self.epsilon)**2 + mean
-        v_sample = 0.5*T.sqrt(T.sqrt(self.vvar)+self.epsilon)*self.theano_rng.normal(size = mean.shape, dtype=theano.config.floatX)+mean
+        v_sample = 0.5*T.sqrt(T.sqr(self.vvar)+self.epsilon)*self.theano_rng.normal(size = mean.shape, dtype=theano.config.floatX)+mean
         #v_sample = mean
         return [mean, v_sample]
 
@@ -141,13 +142,13 @@ if __name__ == '__main__':
     train_size = 60000
     train_data, validation_data = ld.load_data_mnist(train_size=train_size)
 
-    train_data['images'] = train_data['images'][:20000,:,:,:]
-    validation_data['images'] = validation_data['images'][:5000,:,:,:]
-    train_data['labels'] = train_data['labels'][:20000]
-    validation_data['labels'] = validation_data['labels'][:5000]
+    #train_data['images'] = train_data['images'][:20000,:,:,:]
+    #validation_data['images'] = validation_data['images'][:5000,:,:,:]
+    #train_data['labels'] = train_data['labels'][:20000]
+    #validation_data['labels'] = validation_data['labels'][:5000]
 
     #fiddle around, not sure which values to use
-    training_epochs = 1000
+    training_epochs = 200
     training_batches = 100
     patch_size = 28
     batch_size = int(train_data['images'].shape[0] / training_batches)
@@ -161,7 +162,7 @@ if __name__ == '__main__':
 
     #layer sizes
     nvisible = patch_size**2
-    nhidden = 50
+    nhidden = 200
 
     index = T.lscalar()
     x = T.matrix('x')
@@ -180,7 +181,7 @@ if __name__ == '__main__':
      #                       dtype=theano.config.floatX), name='validation_x')
 
     #get cost and update functions for the rbm
-    cost, updates = rbm.get_cost_and_updates(persistent_chain = persistent_chain, k = 5, learning_rate = 0.00001)
+    cost, updates = rbm.get_cost_and_updates(persistent_chain = persistent_chain, k = 5, learning_rate = 0.0003)
     #cost, updates = rbm.get_cost_and_updates(k = 5)
 
     #train_da returns the current cost and updates the rbm parameters,
@@ -193,30 +194,53 @@ if __name__ == '__main__':
 
     #loop over training epochs
     print '--->\n....Now Training RBM\n'
-    
-    for epoch in xrange(training_epochs):
-        c = []
-        #ve = validation_error()
-        #loop over batches
-        for batch in xrange(training_batches):
-            #collect costs for this batch
-            c.append(train_rbm(batch))
+    plot = False
+    try:
+        for epoch in xrange(training_epochs):
+            c = []
+            #ve = validation_error()
+            #loop over batches
+            for batch in xrange(training_batches):
+                #collect costs for this batch
+                c.append(train_rbm(batch))
 
-        #print mean training cost in this epoch
-        #and final validation cost for checking
-        #print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch,
-        #                                                         np.mean(c), ve)
-        if epoch==training_epochs-1 and epoch!=0:
-            for ind in xrange(nhidden):
-                plt.imshow(np.reshape( rbm.W.get_value()[ :, ind], (28, 28)), interpolation='nearest', cmap=plt.cm.gray)
-                plt.colorbar()
-                plt.show()
+            #print mean training cost in this epoch
+            #and final validation cost for checking
+            #print 'Training epoch %d, cost %lf, validation cost %lf' % (epoch,
+            #                                                         np.mean(c), ve)
+            if epoch==training_epochs-1 and plot:
+                for ind in xrange(nhidden):
+                    print ind
+                    plt.imshow(np.reshape( rbm.W.get_value()[ :, ind], (28, 28)), interpolation='nearest', cmap=plt.cm.gray)
+                    plt.colorbar()
+                    plt.show()
+                    plt.imshow(np.reshape(rbm.vvar.get_value(),(28,28)), interpolation='nearest', cmap=plt.cm.gray)
+                    plt.colorbar()
+                    plt.show()
+            print 'Training epoch %d, cost %lf' %(epoch,np.mean(c))
+
+
+
+    except KeyboardInterrupt:
+        if plot:
+            try: 
                 plt.imshow(np.reshape(rbm.vvar.get_value(),(28,28)), interpolation='nearest', cmap=plt.cm.gray)
                 plt.colorbar()
-                plt.show()
-        print 'Training epoch %d, cost %lf' %(epoch,np.mean(c))
-    
-    finame = 'output_pickle_rbm'
-    fi = open(finame, 'w')
-    b = [rbm.W.get_value(), rbm.b_h.get_value(), rbm.b_v.get_value()]
-    pic.dump(b, fi)
+                plt.savefig('variances.png')
+                for ind in xrange(nhidden):
+                    print ind
+                    plt.imshow(np.reshape( rbm.W.get_value()[ :, ind], (28, 28)), interpolation='nearest', cmap=plt.cm.gray)
+                    plt.colorbar()
+                    plt.savefig('W_filters_'+str(ind)+'.png')
+            except KeyboardInterrupt:
+                plt.close()
+        finame = 'output_pickle_rbm'
+        print 'dumping pickle to %s'%finame
+        fi = open(finame, 'w')
+        b = [rbm.W.get_value(), rbm.b_h.get_value(), rbm.b_v.get_value()]
+        pic.dump(b, fi)
+
+finame = 'output_pickle_rbm'
+fi = open(finame, 'w')
+b = [rbm.W.get_value(), rbm.b_h.get_value(), rbm.b_v.get_value()]
+pic.dump(b, fi)
